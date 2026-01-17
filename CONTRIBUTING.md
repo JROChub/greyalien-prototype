@@ -40,3 +40,7 @@ python -m unittest discover -s tests
 - Add `good first issue` or `help wanted` when appropriate.
 - Assign a milestone when the work aligns with the roadmap.
 - Close with context if duplicate, invalid, or out of scope.
+
+## Maintainers
+
+- See `TRIAGE.md` for label meanings and triage flow.
