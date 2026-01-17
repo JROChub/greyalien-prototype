@@ -17,12 +17,23 @@ class Parser:
   def __init__(self, tokens: List[Token]):
     self.tokens = tokens
     self.pos = 0
+    self.errors: List[ParseError] = []
 
   def loc(self, tok: Token) -> ast.SourceLoc:
     return ast.SourceLoc(line=tok.line, column=tok.column)
 
   def current(self) -> Token:
     return self.tokens[self.pos]
+
+  def record_error(self, error: ParseError):
+    self.errors.append(error)
+
+  def synchronize(self, stop_kinds: Optional[List[str]] = None, force_advance: bool = False):
+    stop = set(stop_kinds or [])
+    if force_advance and self.current().kind != 'EOF':
+      self.pos += 1
+    while self.current().kind != 'EOF' and self.current().kind not in stop:
+      self.pos += 1
 
   def match(self, *kinds):
     tok = self.current()
@@ -48,8 +59,20 @@ class Parser:
 
     functions: List[ast.FunctionDef] = []
     while self.current().kind != 'EOF':
-      functions.append(self.parse_function())
-    return ast.Program(module_name=module_name, functions=functions)
+      try:
+        functions.append(self.parse_function())
+      except ParseError as e:
+        self.record_error(e)
+        self.synchronize(['FN'], force_advance=True)
+    program = ast.Program(module_name=module_name, functions=functions)
+    if self.errors:
+      first = self.errors[0]
+      message = first.message
+      extra = len(self.errors) - 1
+      if extra > 0:
+        message = f"{message} (and {extra} more errors)"
+      raise ParseError(message, first.loc)
+    return program
 
   def parse_function(self) -> ast.FunctionDef:
     tok_fn = self.current()
@@ -94,8 +117,18 @@ class Parser:
     while self.current().kind != 'RBRACE':
       if self.current().kind == 'EOF':
         tok = self.current()
-        raise ParseError("Expected RBRACE, got EOF", self.loc(tok))
-      statements.append(self.parse_statement())
+        loc = self.loc(lbrace_tok)
+        raise ParseError(
+          f"Unclosed block, expected '}}' to match '{{' at {loc.line}:{loc.column}",
+          self.loc(tok),
+        )
+      try:
+        statements.append(self.parse_statement())
+      except ParseError as e:
+        self.record_error(e)
+        self.synchronize(['SEMICOL', 'RBRACE'])
+        if self.current().kind == 'SEMICOL':
+          self.match('SEMICOL')
     self.match('RBRACE')
     return ast.Block(statements=statements, loc=self.loc(lbrace_tok))
 
@@ -116,7 +149,7 @@ class Parser:
     if tok.kind == 'WHILE':
       return self.parse_while()
     expr = self.parse_expr()
-    semicol_tok = self.match('SEMICOL')
+    semicol_tok = self.expect_semicolon("expression")
     return ast.ExprStmt(expr=expr, loc=self.loc(semicol_tok))
 
   def parse_let(self) -> ast.LetStmt:
@@ -128,7 +161,7 @@ class Parser:
       type_ann = self.parse_type()
     self.match('EQUALS')
     expr = self.parse_expr()
-    self.match('SEMICOL')
+    self.expect_semicolon("let statement")
     return ast.LetStmt(
       name=name_tok.value,
       expr=expr,
@@ -141,7 +174,7 @@ class Parser:
     name_tok = self.match('IDENT')
     self.match('EQUALS')
     expr = self.parse_expr()
-    self.match('SEMICOL')
+    self.expect_semicolon("set statement")
     return ast.SetStmt(name=name_tok.value, expr=expr, loc=self.loc(set_tok))
 
   def parse_for(self) -> ast.ForStmt:
@@ -172,18 +205,18 @@ class Parser:
 
   def parse_break(self) -> ast.BreakStmt:
     break_tok = self.match('BREAK')
-    self.match('SEMICOL')
+    self.expect_semicolon("break statement")
     return ast.BreakStmt(loc=self.loc(break_tok))
 
   def parse_continue(self) -> ast.ContinueStmt:
     cont_tok = self.match('CONTINUE')
-    self.match('SEMICOL')
+    self.expect_semicolon("continue statement")
     return ast.ContinueStmt(loc=self.loc(cont_tok))
 
   def parse_return(self) -> ast.ReturnStmt:
     ret_tok = self.match('RETURN')
     expr = self.parse_expr()
-    self.match('SEMICOL')
+    self.expect_semicolon("return statement")
     return ast.ReturnStmt(expr=expr, loc=self.loc(ret_tok))
 
   def parse_while(self) -> ast.WhileStmt:
@@ -191,6 +224,14 @@ class Parser:
     cond = self.parse_expr()
     body = self.parse_block()
     return ast.WhileStmt(cond=cond, body=body, loc=self.loc(while_tok))
+
+  def expect_semicolon(self, context: str) -> Token:
+    tok = self.current()
+    if tok.kind == 'SEMICOL':
+      return self.match('SEMICOL')
+    if tok.kind in ('RBRACE', 'EOF'):
+      raise ParseError(f"Missing ';' after {context}", self.loc(tok))
+    raise ParseError(f"Expected SEMICOL, got {tok.kind}", self.loc(tok))
 
   # Expressions
 

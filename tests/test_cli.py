@@ -33,7 +33,7 @@ class CliTests(unittest.TestCase):
     output = buf.getvalue()
     self.assertEqual(code, 1)
     self.assertIn("Parse error:", output)
-    self.assertIn("Expected SEMICOL", output)
+    self.assertIn("Missing ';' after let statement", output)
 
   def test_lex_error_diagnostic(self):
     source = "fn main() { @ }"

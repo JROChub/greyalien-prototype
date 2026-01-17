@@ -102,7 +102,12 @@ class ParserTests(unittest.TestCase):
   def test_unclosed_block(self):
     with self.assertRaises(ParseError) as ctx:
       parse_program("fn main() { let x = 1; ")
-    self.assertIn("Expected RBRACE", str(ctx.exception))
+    self.assertIn("Unclosed block", str(ctx.exception))
+
+  def test_missing_semicolon(self):
+    with self.assertRaises(ParseError) as ctx:
+      parse_program("fn main() { let x = 1 }")
+    self.assertIn("Missing ';' after let statement", str(ctx.exception))
 
 
 if __name__ == '__main__':
