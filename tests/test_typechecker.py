@@ -68,6 +68,21 @@ class TypeCheckerTests(unittest.TestCase):
     with self.assertRaises(TypeError):
       check_program(program)
 
+  def test_record_field_access(self):
+    program = parse_program("fn main() { let p = {x: 1, y: true}; return p.x; }")
+    check_program(program)
+
+  def test_record_unknown_field(self):
+    program = parse_program("fn main() { let p = {x: 1}; return p.y; }")
+    with self.assertRaises(TypeError) as ctx:
+      check_program(program)
+    self.assertIn("Unknown field", str(ctx.exception))
+
+  def test_field_access_on_non_record(self):
+    program = parse_program("fn main() { let x = 1; return x.y; }")
+    with self.assertRaises(TypeError):
+      check_program(program)
+
 
 if __name__ == '__main__':
   unittest.main()

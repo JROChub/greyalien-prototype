@@ -252,8 +252,10 @@ Usage:
   - Integer literals: `1`, `42`
   - String literals: `"hello"`
   - Boolean literals: `true`, `false`
+  - Record literals: `{x: 1, y: 2}`
   - Unary operators: `-expr`, `!expr`
   - Binary operators: `+`, `-`, `*`, `/`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`
+  - Field access: `expr.field`
   - Parentheses: `(expr)`
   - `if` expressions: `if cond { expr; } else { expr; }`
   - `else if` is supported as sugar for `else { if ... }`

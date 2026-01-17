@@ -94,6 +94,9 @@ class Interpreter:
   def _to_string(self, value: Any) -> str:
     if isinstance(value, bool):
       return "true" if value else "false"
+    if isinstance(value, dict):
+      items = ", ".join(f"{k}: {self._to_string(v)}" for k, v in value.items())
+      return "{" + items + "}"
     return str(value)
 
   def execute(self):
@@ -211,8 +214,22 @@ class Interpreter:
       return expr.value
     if isinstance(expr, ast.BoolLiteral):
       return expr.value
+    if isinstance(expr, ast.RecordLiteral):
+      record = {}
+      for field in expr.fields:
+        if field.name in record:
+          raise RuntimeError(f"Duplicate field '{field.name}' in record literal", field.loc)
+        record[field.name] = self.eval_expr(field.expr, env)
+      return record
     if isinstance(expr, ast.VarRef):
       return env.get(expr.name, expr.loc)
+    if isinstance(expr, ast.FieldAccess):
+      base = self.eval_expr(expr.base, env)
+      if not isinstance(base, dict):
+        raise RuntimeError("Field access expects a record", expr.loc)
+      if expr.field not in base:
+        raise RuntimeError(f"Record has no field '{expr.field}'", expr.loc)
+      return base[expr.field]
     if isinstance(expr, ast.UnaryOp):
       value = self.eval_expr(expr.expr, env)
       if expr.op == '-':

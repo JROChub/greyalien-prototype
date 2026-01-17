@@ -22,8 +22,10 @@ interpreter in `roc/`. It is intentionally small and focused.
   - expression statements: `expr;`
 - Expressions:
   - Literals: integers, strings, booleans (`true`, `false`)
+  - Record literals: `{x: 1, y: 2}`
   - Unary `-`, `!`
   - Binary `+`, `-`, `*`, `/`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`
+  - Field access: `expr.field`
   - Parentheses: `(expr)`
   - `if` expressions with `else`
   - Function calls: `name(arg1, arg2)`
@@ -91,15 +93,24 @@ multiplicative_expr ::= unary (("*" | "/") unary)*
 
 unary        ::= "-" unary
                | "!" unary
-               | primary
+               | postfix
+
+postfix      ::= primary ("." IDENT)*
 
 primary      ::= INT
                | STRING
                | TRUE
                | FALSE
+               | record_literal
                | IDENT
                | IDENT "(" arg_list? ")"
                | "(" expr ")"
+
+record_literal ::= "{" field_list? "}"
+
+field_list   ::= field ("," field)*
+
+field        ::= IDENT ":" expr
 
 arg_list     ::= expr ("," expr)*
 
@@ -126,6 +137,8 @@ type_ref     ::= IDENT
   the chosen branch.
 - `if` blocks evaluate in a child scope, so `let` bindings inside do not leak.
 - `break` exits the nearest loop; `continue` skips to the next iteration.
+- Record literals evaluate to records with named fields.
+- Field access reads a record field; missing fields are a runtime error.
 - Supported type names: `Int`, `Bool`, `String`, `Unit`.
 - Truthiness: `false` is false, `true` is true, integer `0` is false, empty
   strings are false; everything else is truthy in this prototype.
@@ -150,5 +163,7 @@ Errors:
 - Undefined variables, wrong arity, and division by zero raise runtime errors.
 - Type mismatches are reported by the type checker (with runtime checks as a backstop).
 - `for` ranges require integers; `break`/`continue` outside loops are runtime errors.
+- Record literals require unique field names.
+- Field access on non-record values is a runtime error.
 - A minimal static type checker runs before execution and reports type errors.
 - Type errors include line/column locations where available.

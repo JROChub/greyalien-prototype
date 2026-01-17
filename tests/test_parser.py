@@ -81,6 +81,16 @@ class ParserTests(unittest.TestCase):
     self.assertIsInstance(else_block.statements[0], ast.ExprStmt)
     self.assertIsInstance(else_block.statements[0].expr, ast.IfExpr)
 
+  def test_record_literal_and_field_access(self):
+    source = "fn main() { let p = {x: 1, y: 2}; return p.x; }"
+    program = parse_program(source)
+    let_stmt = program.functions[0].body.statements[0]
+    self.assertIsInstance(let_stmt, ast.LetStmt)
+    self.assertIsInstance(let_stmt.expr, ast.RecordLiteral)
+    return_stmt = program.functions[0].body.statements[1]
+    self.assertIsInstance(return_stmt, ast.ReturnStmt)
+    self.assertIsInstance(return_stmt.expr, ast.FieldAccess)
+
   def test_unclosed_block(self):
     with self.assertRaises(ParseError) as ctx:
       parse_program("fn main() { let x = 1; ")

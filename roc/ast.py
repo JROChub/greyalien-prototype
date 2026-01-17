@@ -89,6 +89,12 @@ class Expr:
   pass
 
 @dataclass
+class RecordField:
+  name: str
+  expr: 'Expr'
+  loc: Optional[SourceLoc] = None
+
+@dataclass
 class IntLiteral(Expr):
   value: int
   loc: Optional[SourceLoc] = None
@@ -104,8 +110,19 @@ class BoolLiteral(Expr):
   loc: Optional[SourceLoc] = None
 
 @dataclass
+class RecordLiteral(Expr):
+  fields: List[RecordField]
+  loc: Optional[SourceLoc] = None
+
+@dataclass
 class VarRef(Expr):
   name: str
+  loc: Optional[SourceLoc] = None
+
+@dataclass
+class FieldAccess(Expr):
+  base: Expr
+  field: str
   loc: Optional[SourceLoc] = None
 
 @dataclass

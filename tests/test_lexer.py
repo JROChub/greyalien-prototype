@@ -32,6 +32,11 @@ class LexerTests(unittest.TestCase):
     self.assertIn('COLON', kinds)
     self.assertIn('ARROW', kinds)
 
+  def test_dot_token(self):
+    tokens = tokenize("fn main() { let p = {x: 1}; return p.x; }")
+    kinds = [t.kind for t in tokens]
+    self.assertIn('DOT', kinds)
+
 
 if __name__ == '__main__':
   unittest.main()

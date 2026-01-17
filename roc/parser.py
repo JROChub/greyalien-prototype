@@ -273,10 +273,20 @@ class Parser:
       op_tok = self.match('OP')
       expr = self.parse_unary()
       return ast.UnaryOp(op=op_tok.value, expr=expr, loc=self.loc(op_tok))
-    return self.parse_primary()
+    return self.parse_postfix()
+
+  def parse_postfix(self):
+    expr = self.parse_primary()
+    while self.current().kind == 'DOT':
+      self.match('DOT')
+      field_tok = self.match('IDENT')
+      expr = ast.FieldAccess(base=expr, field=field_tok.value, loc=self.loc(field_tok))
+    return expr
 
   def parse_primary(self):
     tok = self.current()
+    if tok.kind == 'LBRACE':
+      return self.parse_record_literal()
     if tok.kind in ('TRUE', 'FALSE'):
       bool_tok = self.match(tok.kind)
       return ast.BoolLiteral(value=(tok.kind == 'TRUE'), loc=self.loc(bool_tok))
@@ -311,3 +321,21 @@ class Parser:
       self.match('RPAREN')
       return expr
     raise ParseError(f"Unexpected token {tok.kind} ('{tok.value}')", self.loc(tok))
+
+  def parse_record_literal(self):
+    lbrace_tok = self.match('LBRACE')
+    fields: List[ast.RecordField] = []
+    seen = set()
+    if self.current().kind != 'RBRACE':
+      while True:
+        name_tok = self.match('IDENT')
+        if name_tok.value in seen:
+          raise ParseError(f"Duplicate field '{name_tok.value}' in record literal", self.loc(name_tok))
+        seen.add(name_tok.value)
+        self.match('COLON')
+        value_expr = self.parse_expr()
+        fields.append(ast.RecordField(name=name_tok.value, expr=value_expr, loc=self.loc(name_tok)))
+        if self.try_match('COMMA') is None:
+          break
+    self.match('RBRACE')
+    return ast.RecordLiteral(fields=fields, loc=self.loc(lbrace_tok))

@@ -142,6 +142,18 @@ class InterpreterTests(unittest.TestCase):
     interp = build_interpreter(source)
     self.assertEqual(interp.execute(), 2)
 
+  def test_record_field_access(self):
+    source = "fn main() { let p = {x: 1, y: 2}; return p.x + p.y; }"
+    interp = build_interpreter(source)
+    self.assertEqual(interp.execute(), 3)
+
+  def test_record_missing_field(self):
+    source = "fn main() { let p = {x: 1}; return p.y; }"
+    interp = build_interpreter(source)
+    with self.assertRaises(RuntimeError) as ctx:
+      interp.execute()
+    self.assertIn("Record has no field", str(ctx.exception))
+
 
 if __name__ == '__main__':
   unittest.main()

@@ -57,8 +57,13 @@ def describe_expr(expr: ast.Expr) -> str:
     return repr(expr.value)
   if isinstance(expr, ast.BoolLiteral):
     return "true" if expr.value else "false"
+  if isinstance(expr, ast.RecordLiteral):
+    fields = ", ".join(f"{field.name}: {describe_expr(field.expr)}" for field in expr.fields)
+    return "{" + fields + "}"
   if isinstance(expr, ast.VarRef):
     return expr.name
+  if isinstance(expr, ast.FieldAccess):
+    return f"{describe_expr(expr.base)}.{expr.field}"
   if isinstance(expr, ast.UnaryOp):
     return f"({expr.op}{describe_expr(expr.expr)})"
   if isinstance(expr, ast.BinaryOp):

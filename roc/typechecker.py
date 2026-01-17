@@ -29,7 +29,7 @@ BOOL = SimpleType("Bool")
 STRING = SimpleType("String")
 UNIT = SimpleType("Unit")
 
-TypeLike = Union[SimpleType, "TypeVar"]
+TypeLike = Union[SimpleType, "TypeVar", "RecordType"]
 
 
 class TypeVar:
@@ -55,6 +55,19 @@ def resolve(t: TypeLike) -> TypeLike:
   return t
 
 
+@dataclass(frozen=True)
+class RecordType:
+  fields: Dict[str, TypeLike]
+
+  def __str__(self) -> str:
+    parts = ", ".join(f"{name}: {value}" for name, value in self.fields.items())
+    return "{" + parts + "}"
+
+
+def _format_record_fields(record_type: "RecordType") -> str:
+  return "{" + ", ".join(record_type.fields.keys()) + "}"
+
+
 def unify(left: TypeLike, right: TypeLike, context: str, loc: Optional[ast.SourceLoc] = None) -> TypeLike:
   l_res = resolve(left)
   r_res = resolve(right)
@@ -65,6 +78,14 @@ def unify(left: TypeLike, right: TypeLike, context: str, loc: Optional[ast.Sourc
     return r_res
   if isinstance(r_res, TypeVar):
     r_res.instance = l_res
+    return l_res
+  if isinstance(l_res, RecordType) and isinstance(r_res, RecordType):
+    if l_res.fields.keys() != r_res.fields.keys():
+      left_fields = _format_record_fields(l_res)
+      right_fields = _format_record_fields(r_res)
+      raise TypeError(f"Record fields mismatch: {left_fields} vs {right_fields} ({context})", loc)
+    for name, left_field in l_res.fields.items():
+      unify(left_field, r_res.fields[name], f"record field '{name}'", loc)
     return l_res
   if l_res != r_res:
     raise TypeError(f"Type mismatch: {l_res} vs {r_res} ({context})", loc)
@@ -270,10 +291,31 @@ class TypeChecker:
       return STRING
     if isinstance(expr, ast.BoolLiteral):
       return BOOL
+    if isinstance(expr, ast.RecordLiteral):
+      fields: Dict[str, TypeLike] = {}
+      for field in expr.fields:
+        if field.name in fields:
+          raise TypeError(f"Duplicate field '{field.name}' in record literal", field.loc)
+        fields[field.name] = self._check_expr(field.expr, env)
+      return RecordType(fields=fields)
     if isinstance(expr, ast.VarRef):
       if expr.name in self.functions:
         raise TypeError(f"Function '{expr.name}' is not a value", expr.loc)
       return env.get(expr.name, expr.loc)
+    if isinstance(expr, ast.FieldAccess):
+      base_t = self._check_expr(expr.base, env)
+      base_res = resolve(base_t)
+      if isinstance(base_res, TypeVar):
+        field_t = TypeVar(f"field.{expr.field}")
+        record_t = RecordType(fields={expr.field: field_t})
+        unify(base_res, record_t, "field access", expr.loc)
+        return field_t
+      if not isinstance(base_res, RecordType):
+        raise TypeError("Field access expects a record", expr.loc)
+      if expr.field not in base_res.fields:
+        available = ", ".join(base_res.fields.keys())
+        raise TypeError(f"Unknown field '{expr.field}' (available: {available})", expr.loc)
+      return base_res.fields[expr.field]
     if isinstance(expr, ast.UnaryOp):
       value_type = self._check_expr(expr.expr, env)
       if expr.op == '-':
