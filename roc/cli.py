@@ -37,6 +37,14 @@ def run_source(source: str, path: str, check_only: bool = False) -> int:
     print(render_diagnostic("Type error", message, normalized, e.loc, path))
     return 1
   except ParseError as e:
+    errors = getattr(e, "errors", None)
+    if errors:
+      rendered = [
+        render_diagnostic("Parse error", err.message, normalized, err.loc, path)
+        for err in errors
+      ]
+      print("\n\n".join(rendered))
+      return 1
     message = getattr(e, "message", str(e))
     print(render_diagnostic("Parse error", message, normalized, e.loc, path))
     return 1

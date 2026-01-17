@@ -3,10 +3,16 @@ from .lexer import Token
 from . import ast
 
 class ParseError(Exception):
-  def __init__(self, message: str, loc: Optional[ast.SourceLoc] = None):
+  def __init__(
+    self,
+    message: str,
+    loc: Optional[ast.SourceLoc] = None,
+    errors: Optional[List['ParseError']] = None,
+  ):
     super().__init__(message)
     self.message = message
     self.loc = loc
+    self.errors = errors
 
   def __str__(self) -> str:
     if self.loc is not None:
@@ -67,11 +73,7 @@ class Parser:
     program = ast.Program(module_name=module_name, functions=functions)
     if self.errors:
       first = self.errors[0]
-      message = first.message
-      extra = len(self.errors) - 1
-      if extra > 0:
-        message = f"{message} (and {extra} more errors)"
-      raise ParseError(message, first.loc)
+      raise ParseError(first.message, first.loc, errors=self.errors)
     return program
 
   def parse_function(self) -> ast.FunctionDef:
@@ -81,7 +83,7 @@ class Parser:
     fn_tok = self.match('FN')
     name_tok = self.match('IDENT')
     name = name_tok.value
-    self.match('LPAREN')
+    lparen_tok = self.match('LPAREN')
     params: List[ast.Param] = []
     if self.current().kind != 'RPAREN':
       while True:
@@ -93,7 +95,7 @@ class Parser:
         params.append(ast.Param(name=param_tok.value, type_ann=type_ann, loc=self.loc(param_tok)))
         if self.try_match('COMMA') is None:
           break
-    self.match('RPAREN')
+    self.expect_closing('RPAREN', lparen_tok, "parameter list", "(", ")")
     return_type = None
     if self.current().kind == 'ARROW':
       self.match('ARROW')
@@ -233,6 +235,25 @@ class Parser:
       raise ParseError(f"Missing ';' after {context}", self.loc(tok))
     raise ParseError(f"Expected SEMICOL, got {tok.kind}", self.loc(tok))
 
+  def expect_closing(
+    self,
+    kind: str,
+    opener: Token,
+    context: str,
+    open_symbol: str,
+    close_symbol: str,
+  ) -> Token:
+    tok = self.current()
+    if tok.kind == kind:
+      return self.match(kind)
+    if tok.kind == 'EOF':
+      loc = self.loc(opener)
+      raise ParseError(
+        f"Unclosed {context}, expected '{close_symbol}' to match '{open_symbol}' at {loc.line}:{loc.column}",
+        self.loc(tok),
+      )
+    raise ParseError(f"Missing '{close_symbol}' to close {context}", self.loc(tok))
+
   # Expressions
 
   def parse_expr(self):
@@ -327,7 +348,7 @@ class Parser:
       if self.current().kind == 'LBRACKET':
         lbrack_tok = self.match('LBRACKET')
         index_expr = self.parse_expr()
-        self.match('RBRACKET')
+        self.expect_closing('RBRACKET', lbrack_tok, "index expression", "[", "]")
         expr = ast.IndexExpr(base=expr, index=index_expr, loc=self.loc(lbrack_tok))
         continue
       break
@@ -357,20 +378,20 @@ class Parser:
       ident = tok.value
       ident_tok = self.match('IDENT')
       if self.current().kind == 'LPAREN':
-        self.match('LPAREN')
+        lparen_tok = self.match('LPAREN')
         args = []
         if self.current().kind != 'RPAREN':
           while True:
             args.append(self.parse_expr())
             if self.try_match('COMMA') is None:
               break
-        self.match('RPAREN')
+        self.expect_closing('RPAREN', lparen_tok, "call expression", "(", ")")
         return ast.CallExpr(callee=ident, args=args, loc=self.loc(ident_tok))
       return ast.VarRef(name=ident, loc=self.loc(ident_tok))
     if tok.kind == 'LPAREN':
-      self.match('LPAREN')
+      lparen_tok = self.match('LPAREN')
       expr = self.parse_expr()
-      self.match('RPAREN')
+      self.expect_closing('RPAREN', lparen_tok, "parenthesized expression", "(", ")")
       return expr
     raise ParseError(f"Unexpected token {tok.kind} ('{tok.value}')", self.loc(tok))
 
@@ -382,7 +403,7 @@ class Parser:
         elements.append(self.parse_expr())
         if self.try_match('COMMA') is None:
           break
-    self.match('RBRACKET')
+    self.expect_closing('RBRACKET', lbrack_tok, "list literal", "[", "]")
     return ast.ListLiteral(elements=elements, loc=self.loc(lbrack_tok))
 
   def parse_record_literal(self):
@@ -400,5 +421,5 @@ class Parser:
         fields.append(ast.RecordField(name=name_tok.value, expr=value_expr, loc=self.loc(name_tok)))
         if self.try_match('COMMA') is None:
           break
-    self.match('RBRACE')
+    self.expect_closing('RBRACE', lbrace_tok, "record literal", "{", "}")
     return ast.RecordLiteral(fields=fields, loc=self.loc(lbrace_tok))

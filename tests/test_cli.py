@@ -35,6 +35,15 @@ class CliTests(unittest.TestCase):
     self.assertIn("Parse error:", output)
     self.assertIn("Missing ';' after let statement", output)
 
+  def test_parse_error_multiple(self):
+    source = "fn main() { let x = 1 } fn other() { let y = 2 }"
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+      code = run_source(source, "test.roc", check_only=False)
+    output = buf.getvalue()
+    self.assertEqual(code, 1)
+    self.assertGreaterEqual(output.count("Parse error:"), 2)
+
   def test_lex_error_diagnostic(self):
     source = "fn main() { @ }"
     buf = io.StringIO()

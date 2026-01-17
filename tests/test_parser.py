@@ -109,6 +109,16 @@ class ParserTests(unittest.TestCase):
       parse_program("fn main() { let x = 1 }")
     self.assertIn("Missing ';' after let statement", str(ctx.exception))
 
+  def test_missing_rparen(self):
+    with self.assertRaises(ParseError) as ctx:
+      parse_program("fn main() { return (1 + 2; }")
+    self.assertIn("Missing ')'", str(ctx.exception))
+
+  def test_missing_rbracket(self):
+    with self.assertRaises(ParseError) as ctx:
+      parse_program("fn main() { let xs = [1, 2; }")
+    self.assertIn("Missing ']'", str(ctx.exception))
+
 
 if __name__ == '__main__':
   unittest.main()
