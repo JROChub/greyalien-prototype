@@ -9,6 +9,9 @@ HELP_TEXT = """Usage:
   roc run <file.roc>
   roc check <file.roc>
   roc ir <file.roc>
+  roc --all-errors <file.roc>
+  roc run --all-errors <file.roc>
+  roc check --all-errors <file.roc>
   roc --version
   roc --help
 """
@@ -19,6 +22,10 @@ def main(argv=None):
   if not argv:
     print(HELP_TEXT.strip())
     return 1
+  all_errors = False
+  if "--all-errors" in argv:
+    all_errors = True
+    argv = [arg for arg in argv if arg != "--all-errors"]
   cmd = argv[0]
   if cmd in ("--help", "-h", "help"):
     print(HELP_TEXT.strip())
@@ -32,12 +39,12 @@ def main(argv=None):
       return 1
     path = argv[1]
     if cmd == "run":
-      return roc_cli.run_path(path, check_only=False)
+      return roc_cli.run_path(path, check_only=False, all_errors=all_errors)
     if cmd == "check":
-      return roc_cli.run_path(path, check_only=True)
+      return roc_cli.run_path(path, check_only=True, all_errors=all_errors)
     if cmd == "ir":
       return roc_compiler.main([path])
-  return roc_cli.run_path(cmd, check_only=False)
+  return roc_cli.run_path(cmd, check_only=False, all_errors=all_errors)
 
 
 if __name__ == "__main__":

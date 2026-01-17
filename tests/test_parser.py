@@ -119,6 +119,12 @@ class ParserTests(unittest.TestCase):
       parse_program("fn main() { let xs = [1, 2; }")
     self.assertIn("Missing ']'", str(ctx.exception))
 
+  def test_missing_rbrace_before_function(self):
+    source = "fn main() { let x = 1; fn other() { return 2; }"
+    with self.assertRaises(ParseError) as ctx:
+      parse_program(source)
+    self.assertIn("Missing '}' before function", str(ctx.exception))
+
 
 if __name__ == '__main__':
   unittest.main()

@@ -124,6 +124,9 @@ class Parser:
           f"Unclosed block, expected '}}' to match '{{' at {loc.line}:{loc.column}",
           self.loc(tok),
         )
+      if self.current().kind in ('FN', 'MODULE'):
+        tok = self.current()
+        raise ParseError("Missing '}' before function or module definition", self.loc(tok))
       try:
         statements.append(self.parse_statement())
       except ParseError as e:

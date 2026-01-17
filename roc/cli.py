@@ -6,16 +6,16 @@ from .parser import Parser, ParseError
 from .interpreter import Interpreter, RuntimeError
 from .typechecker import check_program, TypeError
 
-def run_path(path: str, check_only: bool = False) -> int:
+def run_path(path: str, check_only: bool = False, all_errors: bool = False) -> int:
   try:
     with open(path, 'r', encoding='utf-8') as f:
       source = f.read()
   except OSError as e:
     print(f"Error reading {path}: {e}")
     return 1
-  return run_source(source, path, check_only=check_only)
+  return run_source(source, path, check_only=check_only, all_errors=all_errors)
 
-def run_source(source: str, path: str, check_only: bool = False) -> int:
+def run_source(source: str, path: str, check_only: bool = False, all_errors: bool = False) -> int:
   normalized = normalize_newlines(source)
   try:
     tokens = tokenize(normalized)
@@ -38,7 +38,7 @@ def run_source(source: str, path: str, check_only: bool = False) -> int:
     return 1
   except ParseError as e:
     errors = getattr(e, "errors", None)
-    if errors:
+    if errors and all_errors:
       rendered = [
         render_diagnostic("Parse error", err.message, normalized, err.loc, path)
         for err in errors
@@ -60,12 +60,16 @@ def main(argv=None):
   if argv is None:
     argv = sys.argv[1:]
   if not argv:
-    print("Usage: python -m roc.cli <file.roc>")
+    print("Usage: python -m roc.cli [--all-errors] <file.roc>")
     return 1
+  all_errors = False
+  if "--all-errors" in argv:
+    all_errors = True
+    argv = [arg for arg in argv if arg != "--all-errors"]
   if argv[0] in ("--help", "-h", "help"):
-    print("Usage: python -m roc.cli <file.roc>")
+    print("Usage: python -m roc.cli [--all-errors] <file.roc>")
     return 0
-  return run_path(argv[0], check_only=False)
+  return run_path(argv[0], check_only=False, all_errors=all_errors)
 
 if __name__ == '__main__':
   raise SystemExit(main())

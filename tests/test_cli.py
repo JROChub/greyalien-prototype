@@ -39,7 +39,7 @@ class CliTests(unittest.TestCase):
     source = "fn main() { let x = 1 } fn other() { let y = 2 }"
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-      code = run_source(source, "test.roc", check_only=False)
+      code = run_source(source, "test.roc", check_only=False, all_errors=True)
     output = buf.getvalue()
     self.assertEqual(code, 1)
     self.assertGreaterEqual(output.count("Parse error:"), 2)

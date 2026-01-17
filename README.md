@@ -138,6 +138,9 @@ roc <file.roc>
 roc run <file.roc>
 roc check <file.roc>
 roc ir <file.roc>
+roc --all-errors <file.roc>
+roc run --all-errors <file.roc>
+roc check --all-errors <file.roc>
 roc --version
 roc --help
 ```
@@ -154,6 +157,9 @@ Usage:
   roc run <file.roc>
   roc check <file.roc>
   roc ir <file.roc>
+  roc --all-errors <file.roc>
+  roc run --all-errors <file.roc>
+  roc check --all-errors <file.roc>
   roc --version
   roc --help
 ```
