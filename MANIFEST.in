@@ -7,4 +7,5 @@ include ROC_CORE.md
 include ROC_VISION.md
 include compiler_architecture.md
 recursive-include examples *.roc
+recursive-include examples *.out
 recursive-include tests *.py

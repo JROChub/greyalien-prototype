@@ -192,7 +192,7 @@ class TypeChecker:
     allow_return: bool = True,
   ) -> bool:
     if isinstance(stmt, ast.LetStmt):
-      value_type = self._check_expr(stmt.expr, env)
+      value_type = self._check_expr(stmt.expr, env, in_loop=in_loop)
       if stmt.type_ann is not None:
         annotated = self._type_from_ref(stmt.type_ann)
         unify(annotated, value_type, f"let '{stmt.name}'", stmt.loc)
@@ -201,16 +201,16 @@ class TypeChecker:
         env.define(stmt.name, value_type, stmt.loc)
       return False
     if isinstance(stmt, ast.SetStmt):
-      value_type = self._check_expr(stmt.expr, env)
+      value_type = self._check_expr(stmt.expr, env, in_loop=in_loop)
       env.assign(stmt.name, value_type, stmt.loc)
       return False
     if isinstance(stmt, ast.ForStmt):
-      start_t = self._check_expr(stmt.start, env)
-      end_t = self._check_expr(stmt.end, env)
+      start_t = self._check_expr(stmt.start, env, in_loop=in_loop)
+      end_t = self._check_expr(stmt.end, env, in_loop=in_loop)
       unify(start_t, INT, "for range start", stmt.start.loc)
       unify(end_t, INT, "for range end", stmt.end.loc)
       if stmt.step is not None:
-        step_t = self._check_expr(stmt.step, env)
+        step_t = self._check_expr(stmt.step, env, in_loop=in_loop)
         unify(step_t, INT, "for range step", stmt.step.loc)
       loop_env = TypeEnv(parent=env)
       loop_env.define(stmt.var_name, INT, stmt.loc)
@@ -228,25 +228,25 @@ class TypeChecker:
     if isinstance(stmt, ast.ReturnStmt):
       if not allow_return:
         raise TypeError("return is not allowed inside expression block", stmt.loc)
-      value_type = self._check_expr(stmt.expr, env)
+      value_type = self._check_expr(stmt.expr, env, in_loop=in_loop)
       unify(expected_return, value_type, "return", stmt.loc)
       return True
     if isinstance(stmt, ast.ExprStmt):
-      self._check_expr(stmt.expr, env)
+      self._check_expr(stmt.expr, env, in_loop=in_loop)
       return False
     if isinstance(stmt, ast.WhileStmt):
-      cond_t = self._check_expr(stmt.cond, env)
+      cond_t = self._check_expr(stmt.cond, env, in_loop=in_loop)
       unify(cond_t, BOOL, "while condition", stmt.cond.loc)
       for inner in stmt.body.statements:
         self._check_stmt(inner, env, expected_return, in_loop=True, allow_return=allow_return)
       return False
     raise TypeError(f"Unknown statement type: {stmt}", getattr(stmt, "loc", None))
 
-  def _check_block_expr(self, block: ast.Block, env: TypeEnv) -> TypeLike:
+  def _check_block_expr(self, block: ast.Block, env: TypeEnv, in_loop: bool) -> TypeLike:
     last_type: TypeLike = UNIT
     for stmt in block.statements:
       if isinstance(stmt, ast.LetStmt):
-        value_type = self._check_expr(stmt.expr, env)
+        value_type = self._check_expr(stmt.expr, env, in_loop=in_loop)
         if stmt.type_ann is not None:
           annotated = self._type_from_ref(stmt.type_ann)
           unify(annotated, value_type, f"let '{stmt.name}'", stmt.loc)
@@ -255,18 +255,18 @@ class TypeChecker:
           env.define(stmt.name, value_type, stmt.loc)
         continue
       if isinstance(stmt, ast.SetStmt):
-        value_type = self._check_expr(stmt.expr, env)
+        value_type = self._check_expr(stmt.expr, env, in_loop=in_loop)
         env.assign(stmt.name, value_type, stmt.loc)
         continue
       if isinstance(stmt, ast.ExprStmt):
-        last_type = self._check_expr(stmt.expr, env)
+        last_type = self._check_expr(stmt.expr, env, in_loop=in_loop)
         continue
       if isinstance(stmt, (ast.ForStmt, ast.WhileStmt)):
         self._check_stmt(
           stmt,
           env,
           TypeVar("expr_block_return"),
-          in_loop=False,
+          in_loop=in_loop,
           allow_return=False,
         )
         continue
@@ -275,7 +275,7 @@ class TypeChecker:
           stmt,
           env,
           TypeVar("expr_block_return"),
-          in_loop=False,
+          in_loop=in_loop,
           allow_return=False,
         )
         continue
@@ -284,7 +284,7 @@ class TypeChecker:
       raise TypeError(f"Unsupported statement in expression block: {stmt}", getattr(stmt, "loc", None))
     return last_type
 
-  def _check_expr(self, expr: ast.Expr, env: TypeEnv) -> TypeLike:
+  def _check_expr(self, expr: ast.Expr, env: TypeEnv, in_loop: bool = False) -> TypeLike:
     if isinstance(expr, ast.IntLiteral):
       return INT
     if isinstance(expr, ast.StringLiteral):
@@ -296,14 +296,14 @@ class TypeChecker:
       for field in expr.fields:
         if field.name in fields:
           raise TypeError(f"Duplicate field '{field.name}' in record literal", field.loc)
-        fields[field.name] = self._check_expr(field.expr, env)
+        fields[field.name] = self._check_expr(field.expr, env, in_loop=in_loop)
       return RecordType(fields=fields)
     if isinstance(expr, ast.VarRef):
       if expr.name in self.functions:
         raise TypeError(f"Function '{expr.name}' is not a value", expr.loc)
       return env.get(expr.name, expr.loc)
     if isinstance(expr, ast.FieldAccess):
-      base_t = self._check_expr(expr.base, env)
+      base_t = self._check_expr(expr.base, env, in_loop=in_loop)
       base_res = resolve(base_t)
       if isinstance(base_res, TypeVar):
         field_t = TypeVar(f"field.{expr.field}")
@@ -317,7 +317,7 @@ class TypeChecker:
         raise TypeError(f"Unknown field '{expr.field}' (available: {available})", expr.loc)
       return base_res.fields[expr.field]
     if isinstance(expr, ast.UnaryOp):
-      value_type = self._check_expr(expr.expr, env)
+      value_type = self._check_expr(expr.expr, env, in_loop=in_loop)
       if expr.op == '-':
         unify(value_type, INT, "unary -", expr.loc)
         return INT
@@ -326,8 +326,8 @@ class TypeChecker:
         return BOOL
       raise TypeError(f"Unknown unary operator {expr.op}", expr.loc)
     if isinstance(expr, ast.BinaryOp):
-      left_t = self._check_expr(expr.left, env)
-      right_t = self._check_expr(expr.right, env)
+      left_t = self._check_expr(expr.left, env, in_loop=in_loop)
+      right_t = self._check_expr(expr.right, env, in_loop=in_loop)
       op = expr.op
       if op == '+':
         left_res = resolve(left_t)
@@ -356,19 +356,19 @@ class TypeChecker:
         return BOOL
       raise TypeError(f"Unknown operator {op}", expr.loc)
     if isinstance(expr, ast.IfExpr):
-      cond_t = self._check_expr(expr.cond, env)
+      cond_t = self._check_expr(expr.cond, env, in_loop=in_loop)
       unify(cond_t, BOOL, "if condition", expr.cond.loc)
       then_env = TypeEnv(parent=env)
       else_env = TypeEnv(parent=env)
-      then_t = self._check_block_expr(expr.then_block, then_env)
-      else_t = self._check_block_expr(expr.else_block, else_env)
+      then_t = self._check_block_expr(expr.then_block, then_env, in_loop=in_loop)
+      else_t = self._check_block_expr(expr.else_block, else_env, in_loop=in_loop)
       return unify(then_t, else_t, "if expression", expr.loc)
     if isinstance(expr, ast.CallExpr):
       if env.has(expr.callee):
         raise TypeError(f"'{expr.callee}' is not callable", expr.loc)
       if expr.callee == 'print':
         for arg in expr.args:
-          self._check_expr(arg, env)
+          self._check_expr(arg, env, in_loop=in_loop)
         return UNIT
       if expr.callee not in self.functions:
         raise TypeError(f"Unknown function '{expr.callee}'", expr.loc)
@@ -379,7 +379,7 @@ class TypeChecker:
           expr.loc,
         )
       for arg_expr, param_t in zip(expr.args, fn_type.params):
-        arg_t = self._check_expr(arg_expr, env)
+        arg_t = self._check_expr(arg_expr, env, in_loop=in_loop)
         unify(arg_t, param_t, f"call to '{expr.callee}'", arg_expr.loc)
       return fn_type.return_type
     raise TypeError(f"Unknown expression type: {expr}", getattr(expr, "loc", None))

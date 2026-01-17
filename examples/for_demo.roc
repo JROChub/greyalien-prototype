@@ -8,7 +8,7 @@ fn main() {
     } else {
       set sum = sum + i;
     };
-    if i == 9 { break; } else { 0; };
+    if i == 9 { break; } else { };
   }
   print("sum is " + sum);
 }

@@ -57,11 +57,81 @@ Module names are hierarchical and match directory structure.
 - Generics with type parameters.
 - Traits and implementations via `trait` / `impl`.
 
-### 2.3. Ownership and memory (planned)
+### 2.3. Ownership and borrowing (draft)
 
-- Single-owner semantics (similar to Rust).
-- Borrows `&T` and `&mut T` with mostly inferred lifetimes.
-- Safe subset guarantees no use-after-free or data races.
+Roc uses a single-owner model to make memory safety explicit and teachable.
+The goal is predictable rules with diagnostics that explain "why" and "how".
+
+#### 2.3.1. Core rules
+
+- Every value has exactly one owner at a time.
+- Moving a value transfers ownership to a new binding.
+- After a move, the previous binding is invalid.
+- Values are dropped when their owner goes out of scope.
+
+#### 2.3.2. Moves and copies
+
+- Small scalar types (e.g., `Int`, `Bool`) are `Copy` by default.
+- Non-`Copy` values move on assignment or pass-by-value.
+- Explicit `clone` is required for non-`Copy` duplication.
+
+#### 2.3.3. Borrowing
+
+- `&T` is a shared (read-only) borrow.
+- `&mut T` is an exclusive (read/write) borrow.
+- You can have many shared borrows or one mutable borrow, but not both.
+- Shared borrows cannot mutate, mutable borrows are exclusive.
+
+#### 2.3.4. Regions and lifetimes
+
+- Borrows are tied to lexical regions inferred from scope.
+- A borrow cannot outlive its owner.
+- Reborrowing is allowed but cannot extend the lifetime beyond the owner.
+
+#### 2.3.5. Diagnostics
+
+- Use-after-move errors point to the move site and the invalid use.
+- Borrow conflicts explain both the active borrow and the conflicting access.
+- Error messages include suggestions such as "borrow instead of move".
+
+#### 2.3.6. Examples
+
+Move and use-after-move:
+
+```roc
+fn main() {
+  let data = make_buffer();
+  let moved = data;
+  print(moved);
+  print(data); // error: use-after-move
+}
+```
+
+Shared vs mutable borrow conflict:
+
+```roc
+fn main() {
+  let mut x = 1;
+  let r1 = &x;
+  let r2 = &x;
+  let m = &mut x; // error: cannot borrow mutably while shared borrows are active
+  print(r1);
+  print(r2);
+}
+```
+
+Valid scoped mutable borrow:
+
+```roc
+fn main() {
+  let mut x = 1;
+  {
+    let m = &mut x;
+    *m = 2;
+  }
+  print(x); // ok: mutable borrow ended
+}
+```
 
 ### 2.4. Concurrency (planned)
 
@@ -69,13 +139,67 @@ Module names are hierarchical and match directory structure.
 - Channels for message passing.
 - Structured concurrency: tasks tied to scopes.
 
-### 2.5. Effects (planned)
+### 2.5. Effects (draft)
 
-- `effect` clause in function signatures describes allowed side effects:
+Effects make side effects explicit in type signatures. Roc aims for a small
+effect system that is easy to read and easy to teach.
 
-  ```roc
-  fn read_file(path: String) -> Result<String, io::Error> effect [io]
-  ```
+#### 2.5.1. Effect annotations
+
+Functions default to pure. Effectful functions declare a set of effects:
+
+```roc
+fn read_file(path: String) -> Result<String, io::Error> effect [io]
+```
+
+#### 2.5.2. Effect rules
+
+- Pure functions cannot call effectful functions.
+- A caller must include all effects of its callees.
+- The effect set is part of the function type.
+
+#### 2.5.3. Effect inference
+
+- If a function body uses an effectful operation, the effect is inferred.
+- Explicit annotations are allowed and must be satisfied by the body.
+
+#### 2.5.4. Standard effect set (initial sketch)
+
+- `io`: console and file IO.
+- `net`: networking.
+- `time`: clocks and timers.
+- `rng`: randomness.
+- `unsafe`: explicit unsafe operations.
+
+#### 2.5.5. Examples
+
+```roc
+fn add(a: Int, b: Int) -> Int { a + b }
+
+fn read_name() -> String effect [io] {
+  return input(); // effectful builtin
+}
+
+fn main() -> Unit effect [io] {
+  let name = read_name();
+  print("Hello " + name);
+}
+```
+
+Calling an effectful function from a pure one is an error:
+
+```roc
+fn pure() -> Int {
+  let name = read_name(); // error: effect [io] not allowed here
+  return 0;
+}
+```
+
+#### 2.5.6. Open questions
+
+- Should effects be row-polymorphic (e.g., `effect [io | e]`)?
+- How should effect handlers or capabilities be modeled?
+- Are effects attached to expressions, blocks, or only function boundaries?
 
 ---
 
@@ -92,8 +216,10 @@ The included interpreter supports:
 - `break` and `continue`.
 - Expressions:
   - Integers, strings, booleans (`true`, `false`)
+  - Record literals: `{x: 1, y: 2}`
   - Unary `-`, `!`
   - Binary `+`, `-`, `*`, `/`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`
+  - Field access: `expr.field`
   - Parentheses
   - `if` expressions with `else`:
     `if cond { expr; } else { expr; }`
@@ -167,15 +293,24 @@ multiplicative_expr ::= unary (("*" | "/") unary)*
 
 unary        ::= "-" unary
                | "!" unary
-               | primary
+               | postfix
+
+postfix      ::= primary ("." IDENT)*
 
 primary      ::= INT
                | STRING
                | TRUE
                | FALSE
+               | record_literal
                | IDENT
                | IDENT "(" arg_list? ")"
                | "(" expr ")"
+
+record_literal ::= "{" field_list? "}"
+
+field_list   ::= field ("," field)*
+
+field        ::= IDENT ":" expr
 
 arg_list     ::= expr ("," expr)*
 
@@ -195,6 +330,8 @@ type_ref     ::= IDENT
 - `return` exits the function with a value.
 - `if` expressions evaluate to the value of either branch.
 - `if` blocks evaluate in a child scope, so `let` bindings inside do not leak.
+- Record literals evaluate to records with named fields.
+- Field access reads a record field; missing fields are a runtime error.
 - `while` loops evaluate the condition before each iteration and run in the current scope.
 - `for` loops iterate over integer ranges:
   - `start .. end` excludes `end`.
@@ -231,6 +368,8 @@ Errors:
 - Type mismatches are reported by the type checker (with runtime checks as a backstop).
 - Division by zero raises a runtime error.
 - `for` ranges require integers; `break`/`continue` outside loops are runtime errors.
+- Record literals require unique field names.
+- Field access on non-record values is a runtime error.
 
 ---
 

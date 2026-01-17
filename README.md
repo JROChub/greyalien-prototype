@@ -102,6 +102,12 @@ Typed example:
 python -m roc.cli examples/typed.roc
 ```
 
+Record example:
+
+```bash
+python -m roc.cli examples/records.roc
+```
+
 ## Running tests
 
 ```bash
