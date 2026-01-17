@@ -26,27 +26,27 @@ labels:
   - name: wontfix
     color: ffffff
     description: This will not be worked on
-  - name: area: docs
+  - name: "area: docs"
     color: 0e8a16
     description: Documentation and guides
-  - name: area: spec
+  - name: "area: spec"
     color: 1d76db
     description: Language specification
-  - name: area: parser
+  - name: "area: parser"
     color: c2e0c6
     description: Parsing and syntax
-  - name: area: interpreter
+  - name: "area: interpreter"
     color: fbca04
     description: Interpreter and runtime
-  - name: area: typechecker
+  - name: "area: typechecker"
     color: 5319e7
     description: Type checker and typing
-  - name: area: cli
+  - name: "area: cli"
     color: f9d0c4
     description: CLI and tooling
-  - name: area: compiler
+  - name: "area: compiler"
     color: 0f4c81
     description: Compiler and IR
-  - name: area: tests
+  - name: "area: tests"
     color: bfe5bf
     description: Testing and CI
