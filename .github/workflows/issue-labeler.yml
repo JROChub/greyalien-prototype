@@ -22,10 +22,10 @@ jobs:
               { label: 'area: spec', re: /(\bspec\b|specification|grammar)/ },
               { label: 'area: parser', re: /(parser|parse|parsing|syntax)/ },
               { label: 'area: interpreter', re: /(interpreter|runtime|eval|evaluator)/ },
-              { label: 'area: typechecker', re: /(type checker|typechecker|typing|\btypes?\b)/ },
+              { label: 'area: typechecker', re: /(type checker|typechecking|type checking|typechecker|typing rules|type inference|type system)/ },
               { label: 'area: cli', re: /(\bcli\b|command line|terminal|shell)/ },
               { label: 'area: compiler', re: /(compiler|\bir\b|codegen|lowering)/ },
-              { label: 'area: tests', re: /(tests?|testing|ci|continuous integration)/ },
+              { label: 'area: tests', re: /(\btesting\b|\bci\b|continuous integration|coverage|test suite|golden outputs?|snapshot|regression test|unit test|integration test)/ },
             ];
 
             const labels = new Set();
