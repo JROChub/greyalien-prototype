@@ -31,6 +31,13 @@ This ZIP includes:
 > A minimal static type checker for `Int`, `Bool`, and `String` runs before
 > execution and reports type errors.
 
+## What's new in v0.2.0
+
+- Records and lists with field access and indexing.
+- `for` loops support `by` step sizes plus `break`/`continue`.
+- Parser diagnostics now show multiple errors via `--all-errors`.
+- Roadmap: see [ROADMAP.md](ROADMAP.md).
+
 ## Requirements
 
 - Python 3.9+
