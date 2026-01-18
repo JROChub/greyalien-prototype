@@ -1,6 +1,7 @@
 # Roc Language (Prototype)
 
 [![CI](https://github.com/JROChub/roc-lang-prototype/actions/workflows/ci.yml/badge.svg)](https://github.com/JROChub/roc-lang-prototype/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/roc-lang-prototype.svg)](https://pypi.org/project/roc-lang-prototype/)
 
 This is a **prototype implementation** of the Roc language concept:
 a new, experimental programming language designed to surpass traditional
@@ -33,6 +34,26 @@ This ZIP includes:
 ## Requirements
 
 - Python 3.9+
+
+## Install from PyPI
+
+```bash
+python -m pip install roc-lang-prototype
+```
+
+Create a file `hello.roc`:
+
+```roc
+fn main() {
+  print("Hello from Roc!");
+}
+```
+
+Run it:
+
+```bash
+roc run hello.roc
+```
 
 ## Install from source
 
