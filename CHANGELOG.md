@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- No changes yet.
+- Add `match` expressions with literal patterns and `_` wildcard.
+- Add conformance fixtures and parser fuzz coverage.
 
 ## 0.2.0
 

@@ -9,3 +9,6 @@ include compiler_architecture.md
 recursive-include examples *.roc
 recursive-include examples *.out
 recursive-include tests *.py
+recursive-include tests *.roc
+recursive-include tests *.out
+recursive-include tests *.err
