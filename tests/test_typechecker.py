@@ -80,6 +80,44 @@ class TypeCheckerTests(unittest.TestCase):
       check_program(program)
     self.assertIn("Unknown enum variant", str(ctx.exception))
 
+  def test_enum_payload_constructor(self):
+    program = parse_program(
+      "enum Option { None, Some(Int) }"
+      "fn main() {"
+      "  let x = Some(3);"
+      "  return match x {"
+      "    Some(3) => { 1; }"
+      "    _ => { 0; }"
+      "  };"
+      "}"
+    )
+    check_program(program)
+
+  def test_enum_payload_type_error(self):
+    program = parse_program(
+      "enum Option { None, Some(Int) }"
+      "fn main() {"
+      "  let x = Some(true);"
+      "  return 0;"
+      "}"
+    )
+    with self.assertRaises(TypeError) as ctx:
+      check_program(program)
+    self.assertIn("enum payload", str(ctx.exception))
+
+  def test_enum_payload_pattern_type_error(self):
+    program = parse_program(
+      "enum Option { None, Some(Int) }"
+      "fn main() {"
+      "  return match Some(1) {"
+      "    Some(\"x\") => { 1; }"
+      "    _ => { 0; }"
+      "  };"
+      "}"
+    )
+    with self.assertRaises(TypeError):
+      check_program(program)
+
   def test_for_range_type_error(self):
     program = parse_program("fn main() { for i in true..3 { print(i); } }")
     with self.assertRaises(TypeError):

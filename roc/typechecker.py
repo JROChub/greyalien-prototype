@@ -75,7 +75,7 @@ class ListType:
 @dataclass(frozen=True)
 class EnumType:
   name: str
-  variants: List[str]
+  variants: Dict[str, Optional["TypeLike"]]
 
   def __str__(self) -> str:
     return self.name
@@ -185,16 +185,20 @@ class TypeChecker:
     for enum_def in self.program.enums:
       if enum_def.name in self.enums:
         raise TypeError(f"Enum '{enum_def.name}' already defined", enum_def.loc)
-      variant_names = []
+      self.enums[enum_def.name] = EnumType(name=enum_def.name, variants={})
+      variant_payloads: Dict[str, Optional[TypeLike]] = {}
       for variant in enum_def.variants:
-        if variant.name in variant_names:
+        if variant.name in variant_payloads:
           raise TypeError(f"Enum variant '{variant.name}' already defined", variant.loc)
         if variant.name in self.variant_types:
           raise TypeError(f"Enum variant '{variant.name}' already defined", variant.loc)
         if variant.name == "print":
           raise TypeError("Enum variant 'print' conflicts with built-in function", variant.loc)
-        variant_names.append(variant.name)
-      enum_type = EnumType(name=enum_def.name, variants=variant_names)
+        payload_type = None
+        if variant.payload_type is not None:
+          payload_type = self._type_from_ref(variant.payload_type)
+        variant_payloads[variant.name] = payload_type
+      enum_type = EnumType(name=enum_def.name, variants=variant_payloads)
       self.enums[enum_def.name] = enum_type
       for variant in enum_def.variants:
         self.variant_types[variant.name] = enum_type
@@ -337,6 +341,32 @@ class TypeChecker:
       raise TypeError(f"Unsupported statement in expression block: {stmt}", getattr(stmt, "loc", None))
     return last_type
 
+  def _check_pattern(self, pattern: ast.Pattern, subject_t: TypeLike):
+    if isinstance(pattern, ast.WildcardPattern):
+      return
+    if isinstance(pattern, ast.IntPattern):
+      unify(subject_t, INT, "match pattern", pattern.loc)
+      return
+    if isinstance(pattern, ast.StringPattern):
+      unify(subject_t, STRING, "match pattern", pattern.loc)
+      return
+    if isinstance(pattern, ast.BoolPattern):
+      unify(subject_t, BOOL, "match pattern", pattern.loc)
+      return
+    if isinstance(pattern, ast.EnumPattern):
+      if pattern.name not in self.variant_types:
+        raise TypeError(f"Unknown enum variant '{pattern.name}'", pattern.loc)
+      enum_type = self.variant_types[pattern.name]
+      unify(subject_t, enum_type, "match pattern", pattern.loc)
+      payload_type = enum_type.variants.get(pattern.name)
+      if pattern.payload is None:
+        return
+      if payload_type is None:
+        raise TypeError(f"Enum variant '{pattern.name}' has no payload", pattern.loc)
+      self._check_pattern(pattern.payload, payload_type)
+      return
+    raise TypeError(f"Unknown match pattern: {pattern}", getattr(pattern, "loc", None))
+
   def _check_expr(self, expr: ast.Expr, env: TypeEnv, in_loop: bool = False) -> TypeLike:
     if isinstance(expr, ast.IntLiteral):
       return INT
@@ -362,6 +392,12 @@ class TypeChecker:
     if isinstance(expr, ast.VarRef):
       if expr.name in self.functions:
         raise TypeError(f"Function '{expr.name}' is not a value", expr.loc)
+      if expr.name in self.variant_types:
+        enum_type = self.variant_types[expr.name]
+        payload_type = enum_type.variants.get(expr.name)
+        if payload_type is not None:
+          raise TypeError(f"Enum variant '{expr.name}' requires a payload", expr.loc)
+        return enum_type
       return env.get(expr.name, expr.loc)
     if isinstance(expr, ast.FieldAccess):
       base_t = self._check_expr(expr.base, env, in_loop=in_loop)
@@ -443,20 +479,7 @@ class TypeChecker:
         raise TypeError("match expression requires at least one arm", expr.loc)
       result_t: Optional[TypeLike] = None
       for arm in expr.arms:
-        if isinstance(arm.pattern, ast.IntPattern):
-          unify(subject_t, INT, "match pattern", arm.loc)
-        elif isinstance(arm.pattern, ast.StringPattern):
-          unify(subject_t, STRING, "match pattern", arm.loc)
-        elif isinstance(arm.pattern, ast.BoolPattern):
-          unify(subject_t, BOOL, "match pattern", arm.loc)
-        elif isinstance(arm.pattern, ast.EnumPattern):
-          if arm.pattern.name not in self.variant_types:
-            raise TypeError(f"Unknown enum variant '{arm.pattern.name}'", arm.loc)
-          unify(subject_t, self.variant_types[arm.pattern.name], "match pattern", arm.loc)
-        elif isinstance(arm.pattern, ast.WildcardPattern):
-          pass
-        else:
-          raise TypeError(f"Unknown match pattern: {arm.pattern}", arm.loc)
+        self._check_pattern(arm.pattern, subject_t)
         arm_env = TypeEnv(parent=env)
         arm_t = self._check_block_expr(arm.body, arm_env, in_loop=in_loop)
         if result_t is None:
@@ -465,6 +488,24 @@ class TypeChecker:
           result_t = unify(result_t, arm_t, "match expression", arm.loc)
       return result_t if result_t is not None else UNIT
     if isinstance(expr, ast.CallExpr):
+      if expr.callee in self.variant_types:
+        enum_type = self.variant_types[expr.callee]
+        payload_type = enum_type.variants.get(expr.callee)
+        if payload_type is None:
+          if expr.args:
+            raise TypeError(
+              f"Enum variant '{expr.callee}' expects 0 args, got {len(expr.args)}",
+              expr.loc,
+            )
+          return enum_type
+        if len(expr.args) != 1:
+          raise TypeError(
+            f"Enum variant '{expr.callee}' expects 1 arg, got {len(expr.args)}",
+            expr.loc,
+          )
+        arg_t = self._check_expr(expr.args[0], env, in_loop=in_loop)
+        unify(arg_t, payload_type, f"enum payload for '{expr.callee}'", expr.args[0].loc)
+        return enum_type
       if env.has(expr.callee):
         raise TypeError(f"'{expr.callee}' is not callable", expr.loc)
       if expr.callee == 'print':

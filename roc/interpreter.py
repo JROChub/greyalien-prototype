@@ -27,6 +27,13 @@ class ContinueSignal(Exception):
 class EnumValue:
   enum_name: str
   variant: str
+  payload: Optional[Any] = None
+
+@dataclass(frozen=True)
+class EnumConstructor:
+  enum_name: str
+  variant: str
+  has_payload: bool
 
 class Environment:
   def __init__(self, parent: Optional['Environment'] = None):
@@ -108,14 +115,22 @@ class Interpreter:
       for variant in enum_def.variants:
         if variant.name in seen_variants:
           raise RuntimeError(f"Enum variant '{variant.name}' already defined", variant.loc)
-        value = EnumValue(enum_name=enum_def.name, variant=variant.name)
-        self.global_env.define(variant.name, value, variant.loc)
+        constructor = EnumConstructor(
+          enum_name=enum_def.name,
+          variant=variant.name,
+          has_payload=variant.payload_type is not None,
+        )
+        self.global_env.define(variant.name, constructor, variant.loc)
         seen_variants.add(variant.name)
 
   def _to_string(self, value: Any) -> str:
     if isinstance(value, bool):
       return "true" if value else "false"
     if isinstance(value, EnumValue):
+      if value.payload is not None:
+        return f"{value.enum_name}.{value.variant}({self._to_string(value.payload)})"
+      return f"{value.enum_name}.{value.variant}"
+    if isinstance(value, EnumConstructor):
       return f"{value.enum_name}.{value.variant}"
     if isinstance(value, list):
       items = ", ".join(self._to_string(v) for v in value)
@@ -135,7 +150,13 @@ class Interpreter:
     if isinstance(pattern, ast.BoolPattern):
       return isinstance(value, bool) and value == pattern.value
     if isinstance(pattern, ast.EnumPattern):
-      return isinstance(value, EnumValue) and value.variant == pattern.name
+      if not isinstance(value, EnumValue):
+        return False
+      if value.variant != pattern.name:
+        return False
+      if pattern.payload is None:
+        return True
+      return self._pattern_matches(pattern.payload, value.payload)
     return False
 
   def execute(self):
@@ -263,7 +284,12 @@ class Interpreter:
     if isinstance(expr, ast.ListLiteral):
       return [self.eval_expr(elem, env) for elem in expr.elements]
     if isinstance(expr, ast.VarRef):
-      return env.get(expr.name, expr.loc)
+      value = env.get(expr.name, expr.loc)
+      if isinstance(value, EnumConstructor):
+        if value.has_payload:
+          raise RuntimeError(f"Enum variant '{value.variant}' requires a payload", expr.loc)
+        return EnumValue(enum_name=value.enum_name, variant=value.variant)
+      return value
     if isinstance(expr, ast.FieldAccess):
       base = self.eval_expr(expr.base, env)
       if not isinstance(base, dict):
@@ -357,6 +383,24 @@ class Interpreter:
       args = [self.eval_expr(a, env) for a in expr.args]
       if isinstance(callee_val, FunctionValue):
         return callee_val.call(args, expr.loc)
+      if isinstance(callee_val, EnumConstructor):
+        if callee_val.has_payload:
+          if len(args) != 1:
+            raise RuntimeError(
+              f"Enum variant '{callee_val.variant}' expects 1 arg, got {len(args)}",
+              expr.loc,
+            )
+          return EnumValue(
+            enum_name=callee_val.enum_name,
+            variant=callee_val.variant,
+            payload=args[0],
+          )
+        if len(args) != 0:
+          raise RuntimeError(
+            f"Enum variant '{callee_val.variant}' expects 0 args, got {len(args)}",
+            expr.loc,
+          )
+        return EnumValue(enum_name=callee_val.enum_name, variant=callee_val.variant)
       if callable(callee_val):
         return callee_val(args)
       raise RuntimeError(f"'{expr.callee}' is not callable", expr.loc)

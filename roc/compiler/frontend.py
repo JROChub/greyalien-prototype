@@ -12,7 +12,12 @@ def lower_program(program: ast.Program) -> IRModule:
   return mod
 
 def lower_enum(enum_def: ast.EnumDef) -> IREnum:
-  variants = [variant.name for variant in enum_def.variants]
+  variants = []
+  for variant in enum_def.variants:
+    if variant.payload_type is None:
+      variants.append(variant.name)
+    else:
+      variants.append(f"{variant.name}({describe_type(variant.payload_type)})")
   return IREnum(name=enum_def.name, variants=variants)
 
 def lower_function(fn: ast.FunctionDef) -> IRFunction:
@@ -106,5 +111,7 @@ def describe_pattern(pattern: ast.Pattern) -> str:
   if isinstance(pattern, ast.BoolPattern):
     return "true" if pattern.value else "false"
   if isinstance(pattern, ast.EnumPattern):
-    return pattern.name
+    if pattern.payload is None:
+      return pattern.name
+    return f"{pattern.name}({describe_pattern(pattern.payload)})"
   return f"<unknown pattern {pattern.__class__.__name__}>"

@@ -132,7 +132,18 @@ class Parser:
     if self.current().kind != 'RBRACE':
       while True:
         variant_tok = self.match('IDENT')
-        variants.append(ast.EnumVariant(name=variant_tok.value, loc=self.loc(variant_tok)))
+        payload_type = None
+        if self.current().kind == 'LPAREN':
+          lparen_tok = self.match('LPAREN')
+          payload_type = self.parse_type()
+          self.expect_closing('RPAREN', lparen_tok, "enum variant payload", "(", ")")
+        variants.append(
+          ast.EnumVariant(
+            name=variant_tok.value,
+            payload_type=payload_type,
+            loc=self.loc(variant_tok),
+          )
+        )
         if self.try_match('COMMA') is None:
           break
     self.expect_closing('RBRACE', lbrace_tok, "enum", "{", "}")
@@ -338,7 +349,12 @@ class Parser:
       return ast.WildcardPattern(loc=self.loc(ident_tok))
     if tok.kind == 'IDENT':
       ident_tok = self.match('IDENT')
-      return ast.EnumPattern(name=ident_tok.value, loc=self.loc(ident_tok))
+      payload = None
+      if self.current().kind == 'LPAREN':
+        lparen_tok = self.match('LPAREN')
+        payload = self.parse_pattern()
+        self.expect_closing('RPAREN', lparen_tok, "pattern payload", "(", ")")
+      return ast.EnumPattern(name=ident_tok.value, payload=payload, loc=self.loc(ident_tok))
     raise ParseError(f"Unexpected pattern token {tok.kind} ('{tok.value}')", self.loc(tok))
 
   def parse_if_expr(self):

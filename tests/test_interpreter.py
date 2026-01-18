@@ -178,6 +178,32 @@ class InterpreterTests(unittest.TestCase):
     interp = build_interpreter(source)
     self.assertEqual(interp.execute(), 2)
 
+  def test_enum_payload_match(self):
+    source = (
+      "enum Option { None, Some(Int) }"
+      "fn main() {"
+      "  return match Some(2) {"
+      "    Some(2) => { 10; }"
+      "    _ => { 0; }"
+      "  };"
+      "}"
+    )
+    interp = build_interpreter(source)
+    self.assertEqual(interp.execute(), 10)
+
+  def test_enum_payload_requires_value(self):
+    source = (
+      "enum Option { Some(Int) }"
+      "fn main() {"
+      "  let x = Some;"
+      "  return 0;"
+      "}"
+    )
+    interp = build_interpreter(source)
+    with self.assertRaises(RuntimeError) as ctx:
+      interp.execute()
+    self.assertIn("requires a payload", str(ctx.exception))
+
   def test_record_field_access(self):
     source = "fn main() { let p = {x: 1, y: 2}; return p.x + p.y; }"
     interp = build_interpreter(source)

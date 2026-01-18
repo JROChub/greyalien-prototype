@@ -247,7 +247,9 @@ import_decl  ::= "import" IDENT ";"
 
 enum_def     ::= "enum" IDENT "{" enum_variants "}"
 
-enum_variants ::= IDENT ("," IDENT)*
+enum_variants ::= enum_variant ("," enum_variant)*
+
+enum_variant ::= IDENT ("(" type_ref ")")?
 
 fn_def       ::= "fn" IDENT "(" param_list? ")" return_type? block
 
@@ -296,7 +298,9 @@ match_expr   ::= "match" expr "{" match_arm+ "}"
 
 match_arm    ::= pattern "=>" block ";"?
 
-pattern      ::= INT | STRING | TRUE | FALSE | "_" | IDENT
+pattern      ::= INT | STRING | TRUE | FALSE | "_" | enum_pattern
+
+enum_pattern ::= IDENT ("(" pattern ")")?
 
 logical_or   ::= logical_and ("||" logical_and)*
 
@@ -360,6 +364,9 @@ type_ref     ::= IDENT
 - Match arms evaluate in child scopes like `if` blocks.
 - Enum definitions introduce new types and variants.
 - Enum variants are values available in expressions and `match` patterns.
+- Enum variants may carry a single payload value.
+- Payload constructors use call syntax (e.g., `Some(1)`).
+- Payload patterns use `Variant(pattern)` (e.g., `Some(1)` or `Some(_)`).
 - Record literals evaluate to records with named fields.
 - Field access reads a record field; missing fields are a runtime error.
 - List literals evaluate to lists with ordered elements.

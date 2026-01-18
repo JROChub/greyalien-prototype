@@ -155,6 +155,12 @@ Enum example:
 python -m roc.cli examples/enum_demo.roc
 ```
 
+Enum payload example:
+
+```bash
+python -m roc.cli examples/enum_payload_demo.roc
+```
+
 Module/import example:
 
 ```bash

@@ -41,6 +41,7 @@ class FunctionDef:
 @dataclass
 class EnumVariant:
   name: str
+  payload_type: Optional[TypeRef] = None
   loc: Optional[SourceLoc] = None
 
 @dataclass
@@ -132,6 +133,7 @@ class BoolPattern(Pattern):
 @dataclass
 class EnumPattern(Pattern):
   name: str
+  payload: Optional[Pattern] = None
   loc: Optional[SourceLoc] = None
 
 @dataclass

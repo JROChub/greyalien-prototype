@@ -65,6 +65,21 @@ class ParserTests(unittest.TestCase):
     self.assertEqual(len(program.imports), 1)
     self.assertEqual(program.imports[0].name, "util")
 
+  def test_enum_payload_variant(self):
+    program = parse_program("enum Option { None, Some(Int) } fn main() { return 0; }")
+    enum_def = program.enums[0]
+    self.assertEqual(enum_def.variants[1].name, "Some")
+    self.assertEqual(enum_def.variants[1].payload_type.name, "Int")
+
+  def test_match_enum_payload_pattern(self):
+    source = (
+      "enum Option { None, Some(Int) }"
+      "fn main() { return match Some(1) { Some(1) => { 1; } _ => { 0; } }; }"
+    )
+    program = parse_program(source)
+    stmt = program.functions[0].body.statements[0]
+    self.assertIsInstance(stmt.expr, ast.MatchExpr)
+
   def test_type_annotations(self):
     program = parse_program("fn add(a: Int, b: Int) -> Int { return a + b; }")
     fn = program.functions[0]
