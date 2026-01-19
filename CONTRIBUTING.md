@@ -17,10 +17,24 @@ python -m unittest discover -s tests
 
 ## Coding guidelines
 
-- Follow the existing formatting and indentation in each file.
+- Format Python with `ruff format` and check lint with `ruff check`.
 - Keep behavior explicit and error messages clear.
 - Add tests for new syntax, runtime semantics, and edge cases.
 - Keep the subset spec and README in sync with interpreter behavior.
+
+## Tooling
+
+Install dev tools:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Common checks:
+
+```bash
+make ci
+```
 
 ## Doc changes
 

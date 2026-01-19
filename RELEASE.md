@@ -6,8 +6,8 @@ Use this checklist to cut a new release.
    - Move items from "Unreleased" into a new version section.
 2. Bump version number
    - `pyproject.toml`
-3. Run tests
-   - `python -m unittest discover -s tests`
+3. Run CI checks locally
+   - `make ci`
 4. Tag the release
    - `git tag vX.Y.Z`
    - `git push origin vX.Y.Z`

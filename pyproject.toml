@@ -30,7 +30,42 @@ Issues = "https://github.com/JROChub/roc-lang-prototype/issues"
 [project.scripts]
 roc = "roc.__main__:main"
 
+[project.optional-dependencies]
+dev = ["coverage", "mypy", "ruff"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["roc*"]
 exclude = ["tests*", "examples*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.9"
+files = ["roc"]
+warn_unused_ignores = true
+warn_unused_configs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+disable_error_code = ["annotation-unchecked"]
+
+[tool.coverage.run]
+branch = true
+source = ["roc"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 75

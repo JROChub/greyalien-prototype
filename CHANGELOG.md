@@ -9,6 +9,7 @@
 - Add explicit `export { ... };` declarations to control module visibility.
 - Exported enums no longer implicitly export their variants.
 - Allow module-qualified enum types in annotations (for example, `colors.Color`).
+- Add CI quality gates for linting, formatting, type checking, and coverage.
 
 ## 0.3.0
 
