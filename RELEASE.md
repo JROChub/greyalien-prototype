@@ -11,11 +11,7 @@ Use this checklist to cut a new release.
 4. Confirm CodeQL and SBOM workflows are green
 5. Confirm trusted publishing is configured
    - PyPI/TestPyPI should trust this repo for environments `pypi` and `testpypi`.
-6. Tag the release
-   - `git tag vX.Y.Z`
-   - `git push origin vX.Y.Z`
-7. Publish package (optional for prototype builds)
-   - Run the GitHub Actions "Publish" workflow for TestPyPI first.
-   - If green, rerun for PyPI.
-8. Create a GitHub release
-   - Use the changelog entry as the release notes.
+6. Run the GitHub Actions "Release" workflow
+   - Provide a tag like `vX.Y.Z` that matches `pyproject.toml`.
+   - Choose TestPyPI or PyPI and optional prerelease flag.
+7. Verify the GitHub release assets and PyPI/TestPyPI upload

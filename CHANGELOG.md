@@ -12,6 +12,7 @@
 - Add CI quality gates for linting, formatting, type checking, and coverage.
 - Raise coverage gate to 85%.
 - Add CodeQL scanning, Dependabot updates, SBOM generation, signed artifacts, and OIDC publishing.
+- Add a release workflow that tags, builds, signs, attests, and publishes.
 
 ## 0.3.0
 
