@@ -236,6 +236,38 @@ class InterpreterTests(unittest.TestCase):
             interp.execute()
         self.assertIn("out of bounds", str(ctx.exception))
 
+    def test_duplicate_let_in_same_scope(self):
+        interp = build_interpreter("fn main() { let x = 1; let x = 2; }")
+        with self.assertRaises(RuntimeError) as ctx:
+            interp.execute()
+        self.assertIn("already defined", str(ctx.exception))
+
+    def test_set_undefined_variable(self):
+        interp = build_interpreter("fn main() { set x = 1; }")
+        with self.assertRaises(RuntimeError) as ctx:
+            interp.execute()
+        self.assertIn("Undefined variable", str(ctx.exception))
+
+    def test_function_arity_error(self):
+        source = "fn add(a) { return a; } fn main() { return add(1, 2); }"
+        interp = build_interpreter(source)
+        with self.assertRaises(RuntimeError) as ctx:
+            interp.execute()
+        self.assertIn("expected 1 args", str(ctx.exception))
+
+    def test_import_requires_loader(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            build_interpreter("import math_utils; fn main() { return 0; }")
+        self.assertIn("Imports require the loader", str(ctx.exception))
+
+    def test_print_multiple_args(self):
+        source = "fn main() { print(1, 2, 3); }"
+        interp = build_interpreter(source)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            interp.execute()
+        self.assertEqual(buf.getvalue().strip(), "1 2 3")
+
 
 if __name__ == '__main__':
     unittest.main()

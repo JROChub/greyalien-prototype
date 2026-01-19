@@ -52,6 +52,43 @@ class MainEntryTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Usage:", buf.getvalue())
 
+    def test_main_all_errors_flag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "bad.roc"
+            path.write_text(
+                "fn main() { let x = 1 }\nfn other() { let y = 2 }\n",
+                encoding="utf-8",
+            )
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = roc_main.main(["--all-errors", str(path)])
+            self.assertEqual(code, 1)
+            output = buf.getvalue()
+            self.assertGreaterEqual(output.count("Parse error:"), 2)
+
+    def test_main_direct_file_arg(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "main.roc"
+            path.write_text("fn main() { return 1; }\n", encoding="utf-8")
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = roc_main.main([str(path)])
+            self.assertEqual(code, 0)
+
+    def test_main_uses_sys_argv(self):
+        original = roc_main.sys.argv
+        try:
+            roc_main.sys.argv = ["roc", "--help"]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = roc_main.main()
+            self.assertEqual(code, 0)
+            self.assertIn("Usage:", buf.getvalue())
+        finally:
+            roc_main.sys.argv = original
+
 
 if __name__ == "__main__":
     unittest.main()

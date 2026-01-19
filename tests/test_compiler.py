@@ -18,6 +18,25 @@ def parse_program(source: str):
 
 
 class CompilerCliTests(unittest.TestCase):
+    def test_compiler_no_args(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = compiler_main.main([])
+        self.assertEqual(code, 1)
+        self.assertIn("Usage:", buf.getvalue())
+
+    def test_compiler_uses_sys_argv(self):
+        original = compiler_main.sys.argv
+        try:
+            compiler_main.sys.argv = ["roc.compiler", "--help"]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = compiler_main.main()
+            self.assertEqual(code, 0)
+            self.assertIn("Usage:", buf.getvalue())
+        finally:
+            compiler_main.sys.argv = original
+
     def test_compiler_help(self):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -53,6 +72,11 @@ class CompilerCliTests(unittest.TestCase):
                 code = compiler_main.main([str(path)])
         self.assertEqual(code, 0)
         self.assertIn("fn main", buf.getvalue())
+
+    def test_compiler_lookup_source_default(self):
+        source, path = compiler_main._lookup_source(None, "main.roc", {"main.roc": "fn main() {}"})
+        self.assertEqual(path, "main.roc")
+        self.assertIn("fn main", source)
 
 
 class CompilerFrontendTests(unittest.TestCase):

@@ -1,9 +1,12 @@
 import contextlib
 import io
+import tempfile
 import unittest
+from pathlib import Path
 
 from roc import __main__ as roc_main
-from roc.cli import run_source
+from roc import cli as roc_cli
+from roc.cli import run_source, run_path
 
 
 class CliTests(unittest.TestCase):
@@ -63,6 +66,74 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Runtime error:", output)
         self.assertIn("Division by zero", output)
+
+    def test_run_source_check_only(self):
+        source = "fn main() { return 0; }"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = run_source(source, "test.roc", check_only=True)
+        self.assertEqual(code, 0)
+        self.assertEqual(buf.getvalue().strip(), "")
+
+    def test_run_source_runtime_error_without_loc(self):
+        source = "fn helper() { return 1; }"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = run_source(source, "test.roc", check_only=False)
+        output = buf.getvalue()
+        self.assertEqual(code, 1)
+        self.assertIn("Runtime error:", output)
+        self.assertIn("No 'main' function defined", output)
+
+    def test_run_path_load_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            path = base / "main.roc"
+            path.write_text("import missing;\nfn main() { return 0; }\n", encoding="utf-8")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = run_path(str(path), check_only=False)
+            output = buf.getvalue()
+            self.assertEqual(code, 1)
+            self.assertIn("Import error:", output)
+
+    def test_run_path_parse_error_all(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            path = base / "main.roc"
+            path.write_text(
+                "fn main() { let x = 1 }\nfn other() { let y = 2 }\n",
+                encoding="utf-8",
+            )
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = run_path(str(path), check_only=False, all_errors=True)
+            output = buf.getvalue()
+            self.assertEqual(code, 1)
+            self.assertGreaterEqual(output.count("Parse error:"), 2)
+
+    def test_cli_main_help(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = roc_cli.main(["--help"])
+        output = buf.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("Usage:", output)
+
+    def test_cli_main_all_errors(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            path = base / "main.roc"
+            path.write_text(
+                "fn main() { let x = 1 }\nfn other() { let y = 2 }\n",
+                encoding="utf-8",
+            )
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = roc_cli.main(["--all-errors", str(path)])
+            output = buf.getvalue()
+            self.assertEqual(code, 1)
+            self.assertGreaterEqual(output.count("Parse error:"), 2)
 
     def test_help_flag(self):
         buf = io.StringIO()

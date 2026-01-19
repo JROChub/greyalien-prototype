@@ -148,6 +148,142 @@ class LoaderTests(unittest.TestCase):
                 )
             self.assertIn("has no export", str(ctx.exception))
 
+    def test_import_cycle_reports_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "a.roc").write_text(
+                "module a\nimport b;\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+            (base / "b.roc").write_text(
+                "module b\nimport a;\nfn helper() { return 1; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "a.roc"))
+            self.assertIn("Import cycle detected", ctx.exception.message)
+
+    def test_import_module_name_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "foo.roc").write_text(
+                "module bar\nfn helper() { return 1; }\n",
+                encoding="utf-8",
+            )
+            (base / "main.roc").write_text(
+                "import foo;\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("does not match import", ctx.exception.message)
+
+    def test_export_duplicate_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "main.roc").write_text(
+                "export { add, add };\nfn add() { return 1; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("already listed", ctx.exception.message)
+
+    def test_export_unknown_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "main.roc").write_text(
+                "export { Missing };\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("Unknown export", ctx.exception.message)
+
+    def test_export_ambiguous_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "main.roc").write_text(
+                "export { Foo };\nenum Foo { Bar }\nfn Foo() { return 1; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("ambiguous", ctx.exception.message)
+
+    def test_import_alias_duplicate(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "util.roc").write_text(
+                "module util\nexport { add };\nfn add(a, b) { return a + b; }\n",
+                encoding="utf-8",
+            )
+            (base / "other.roc").write_text(
+                "module other\nexport { sub };\nfn sub(a, b) { return a - b; }\n",
+                encoding="utf-8",
+            )
+            (base / "main.roc").write_text(
+                "import util as math;\nimport other as math;\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("already used", ctx.exception.message)
+
+    def test_import_alias_conflicts_with_local(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "util.roc").write_text(
+                "module util\nexport { add };\nfn add(a, b) { return a + b; }\n",
+                encoding="utf-8",
+            )
+            (base / "main.roc").write_text(
+                "import util as math;\nfn math() { return 1; }\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("conflicts with local definition", ctx.exception.message)
+
+    def test_imported_module_lex_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "bad.roc").write_text(
+                "fn main() { @ }\n",
+                encoding="utf-8",
+            )
+            (base / "main.roc").write_text(
+                "import bad;\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("Lex error", ctx.exception.kind)
+
+    def test_imported_module_parse_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "bad.roc").write_text(
+                "fn main() { let x = 1\n",
+                encoding="utf-8",
+            )
+            (base / "main.roc").write_text(
+                "import bad;\nfn main() { return 0; }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(LoadError) as ctx:
+                load_program(str(base / "main.roc"))
+            self.assertIn("Parse error", ctx.exception.kind)
+
 
 if __name__ == "__main__":
     unittest.main()
