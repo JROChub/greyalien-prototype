@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -73,7 +73,7 @@ jobs:
             python-version: "3.11"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -85,7 +85,7 @@ jobs:
     needs: [test, lint, typecheck, coverage]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
