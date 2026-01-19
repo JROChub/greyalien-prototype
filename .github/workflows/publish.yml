@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      attestations: write
       id-token: write
     steps:
       - name: Checkout
@@ -37,8 +38,35 @@ jobs:
         run: python -m pip install --upgrade pip build twine
       - name: Build package
         run: python -m build
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: cyclonedx-json
+          output-file: dist/sbom.cdx.json
       - name: Check package metadata
         run: python -m twine check dist/*
+      - name: Sign artifacts
+        uses: sigstore/gh-action-sigstore-python@v2
+        with:
+          inputs: |
+            dist/*.whl
+            dist/*.tar.gz
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: dist/*
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
       - name: Publish to TestPyPI
         if: ${{ inputs.target == 'testpypi' && inputs.dry_run != 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1

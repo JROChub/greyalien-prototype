@@ -11,6 +11,7 @@
 - Allow module-qualified enum types in annotations (for example, `colors.Color`).
 - Add CI quality gates for linting, formatting, type checking, and coverage.
 - Raise coverage gate to 85%.
+- Add CodeQL scanning, Dependabot updates, SBOM generation, and signed publish artifacts.
 
 ## 0.3.0
 
