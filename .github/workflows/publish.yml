@@ -54,8 +54,12 @@ jobs:
           path: dist
           format: cyclonedx-json
           output-file: dist/sbom.cdx.json
+      - name: Prepare publish artifacts
+        run: |
+          mkdir -p publish-dist
+          cp dist/*.whl dist/*.tar.gz publish-dist/
       - name: Check package metadata
-        run: python -m twine check dist/*.whl dist/*.tar.gz
+        run: python -m twine check publish-dist/*.whl publish-dist/*.tar.gz
       - name: Sign artifacts
         uses: sigstore/gh-action-sigstore-python@v3.1.0
         with:
@@ -76,6 +80,9 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          packages-dir: publish-dist
       - name: Publish to PyPI
         if: ${{ inputs.target == 'pypi' && inputs.dry_run != 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: publish-dist
