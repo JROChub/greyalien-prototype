@@ -57,7 +57,7 @@ jobs:
       - name: Check package metadata
         run: python -m twine check dist/*
       - name: Sign artifacts
-        uses: sigstore/gh-action-sigstore-python@v1
+        uses: sigstore/gh-action-sigstore-python@v3.1.0
         with:
           inputs: |
             dist/*.whl
